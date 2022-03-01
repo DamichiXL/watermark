@@ -5,5 +5,12 @@
 # Requirements
 
 1. Imagick
-2. ffmpeg
-3. PHP-zip
+   1. `sudo apt-get install php-imagick`
+2. PHP-zip
+   1. `sudo apt-get install php-zip`
+3. ffmpeg
+   1. `sudo apt install software-properties-common`
+   2. `sudo apt update`
+   3. `sudo add-apt-repository ppa:jonathonf/ffmpeg-4`
+   4. `sudo apt install ffmpeg`
+   5. `ffmpeg -version`
