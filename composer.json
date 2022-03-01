@@ -1,0 +1,14 @@
+{
+    "name": "damichixl/watermark",
+    "description": "Simple form for adding watermarks on images and videos",
+    "type": "project",
+    "authors": [
+        {
+            "name": "Maksym Sliusarchuk",
+            "email": "max.slyusarchuk@gmail.com"
+        }
+    ],
+    "require": {
+        "php-ffmpeg/php-ffmpeg": "^1.0"
+    }
+}
