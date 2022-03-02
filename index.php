@@ -80,6 +80,20 @@ if (isset($_POST['id'])){
                    class="form-control"
             >
 
+            <div class="form-check">
+                <input class="form-check-input"
+                       type="checkbox"
+                       name="disable_audio"
+                       id="disable_audio"
+                       value="1"
+                >
+                <label class="form-check-label"
+                       for="other"
+                >
+                    Disable audio
+                </label>
+            </div>
+
             <label class="form-label">
                 Watermark
             </label>

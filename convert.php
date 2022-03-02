@@ -118,25 +118,33 @@ function uploadVideos($id): array
     $uploads_dir = "uploads/$id";
 
     if (!file_exists($uploads_dir)) {
-        mkdir($uploads_dir, 0777, true);
+        mkdir($uploads_dir);
     }
 
-    foreach ($_FILES["videos"]["error"] as $key => $error) {
-        if ($error == UPLOAD_ERR_OK) {
-            $tmp_name = $_FILES["videos"]["tmp_name"][$key];
-            $name = basename($_FILES["videos"]["name"][$key]);
-            if (move_uploaded_file($tmp_name, "$uploads_dir/$name")) {
-                $files[] = $name;
-            } else {
-                echo "Uploading error";
+    try {
+
+        foreach ($_FILES["videos"]["error"] as $key => $error) {
+            if ($error == UPLOAD_ERR_OK) {
+                $tmp_name = $_FILES["videos"]["tmp_name"][$key];
+                $name = basename($_FILES["videos"]["name"][$key]);
+                if (move_uploaded_file($tmp_name, "$uploads_dir/$name")) {
+                    $files[] = $name;
+                } else {
+                    echo "Uploading error";
+                }
             }
         }
+    } catch (\Throwable $ex) {
+        echo '<pre>';
+        var_dump($ex->getTrace());
+        echo '</pre>';
     }
+
 
     return $files;
 }
 
-function addWatermarkToVideo($id, $filename, $stamp_name)
+function addWatermarkToVideo($id, $filename, $stamp_name, $disable_audio)
 {
     $destination = "result/$id";
 
@@ -192,15 +200,16 @@ function addWatermarkToVideo($id, $filename, $stamp_name)
 
     $video = $ffmpeg->open("uploads/$id/$filename");
 
+    if ($disable_audio) {
+        $video->addFilter(new FFMpeg\Filters\Audio\SimpleFilter(['-an']));
+    }
+
     $video->filters()
         ->watermark($temp_name, array(
             'position' => 'relative',
             'bottom' => 10,
             'right' => 10
         ));
-
-    /*exec('ffmpeg -i ' . "uploads/$id/$filename" . ' -i ' . $stamp_name . ' -filter_complex \
-      "[1]scale=iw*1:-1[wm];[0][wm]overlay=x=(W-w)/2:y=(H-h)/2" '. "$destination/$filename");*/
 
     $video->save(new FFMpeg\Format\Video\X264(), "$destination/$filename");
 
@@ -302,13 +311,13 @@ if (isset($_FILES['images'])) {
         }
 
     } catch (Throwable $throwable) {
-        echo $throwable->getMessage();
-    }
+        echo "<pre>";
+        echo $throwable->getTraceAsString();
+        echo "</pre>";    }
 }
 
 if (isset($_FILES['videos'])) {
     try {
-
         $files = uploadVideos($id);
 
         if ($_POST['watermark'] === "other") {
@@ -318,15 +327,13 @@ if (isset($_FILES['videos'])) {
         }
 
         foreach ($files as $file) {
-            addWatermarkToVideo($id, $file, $watermark);
+            addWatermarkToVideo($id, $file, $watermark, $_POST['disable_audio']);
         }
 
     } catch (Throwable $throwable) {
-        echo $throwable->getMessage();
         echo "<pre>";
         echo $throwable->getTraceAsString();
         echo "</pre>";
-
     }
 }
 
@@ -342,7 +349,9 @@ if (isset($_FILES['images']) || isset($_FILES['video'])) {
         removeDirectories($id);
 
     } catch (Throwable $throwable) {
-        echo $throwable->getMessage();
+        echo "<pre>";
+        echo $throwable->getTraceAsString();
+        echo "</pre>";
     }
 
 }
