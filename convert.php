@@ -187,7 +187,7 @@ function addWatermarkToVideo($id, $filename, $stamp_name)
 
     $ffmpeg = FFMpeg\FFMpeg::create([
         'ffmpeg.binaries' => '/usr/bin/ffmpeg',
-        'ffprobe.binaries' => '/usr/bin/ffprobe'
+        'ffprobe.binaries' => '/usr/bin/ffprobe',
     ]);
 
     $video = $ffmpeg->open("uploads/$id/$filename");
@@ -198,6 +198,9 @@ function addWatermarkToVideo($id, $filename, $stamp_name)
             'bottom' => 10,
             'right' => 10
         ));
+
+    /*exec('ffmpeg -i ' . "uploads/$id/$filename" . ' -i ' . $stamp_name . ' -filter_complex \
+      "[1]scale=iw*1:-1[wm];[0][wm]overlay=x=(W-w)/2:y=(H-h)/2" '. "$destination/$filename");*/
 
     $video->save(new FFMpeg\Format\Video\X264(), "$destination/$filename");
 

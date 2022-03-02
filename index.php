@@ -93,6 +93,7 @@ if (isset($_POST['id'])){
                            id="<?= $id ?>"
                            value="<?= $path ?>"
                            required
+                           checked
                     >
                     <label class="form-check-label"
                            for="<?= $id ?>"
@@ -110,7 +111,6 @@ if (isset($_POST['id'])){
                        id="other"
                        value="other"
                        required
-                       checked
                 >
                 <label class="form-check-label"
                        for="other"
