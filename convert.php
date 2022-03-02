@@ -4,10 +4,10 @@ set_time_limit(0);
 
 require __DIR__ . '/vendor/autoload.php';
 
-function uploadImages(): array
+function uploadImages($id): array
 {
     $files = [];
-    $uploads_dir = 'uploads';
+    $uploads_dir = "uploads/$id";
 
     if (!file_exists($uploads_dir)) {
         mkdir($uploads_dir);
@@ -28,45 +28,45 @@ function uploadImages(): array
     return $files;
 }
 
-function uploadStamp(): string
+function uploadStamp($id): string
 {
-    $folder = "uploads/";
+    $folder = "uploads/$id";
 
-    move_uploaded_file($_FILES['watermark']["tmp_name"], "$folder" . $_FILES['watermark']["name"]);
+    move_uploaded_file($_FILES['watermark']["tmp_name"], "$folder/" . $_FILES['watermark']["name"]);
 
     return $_FILES['watermark']["name"];
 }
 
-function addWatermarkToImage($filename, $stamp_name): bool
+function addWatermarkToImage($id, $filename, $stamp_name): bool
 {
-    $destination = "result";
+    $destination = "result/$id";
     if (!file_exists($destination)) {
         mkdir($destination);
     }
 
-    $mime = mime_content_type("uploads/$filename");
+    $mime = mime_content_type("uploads/$id/$filename");
 
     if ($mime === 'image/png') {
         $im = imagecreatefrompng(
-            "uploads/$filename"
+            "uploads/$id/$filename"
         );
     } elseif ($mime === 'image/jpeg') {
         $im = imagecreatefromjpeg(
-            "uploads/$filename"
+            "uploads/$id/$filename"
         );
     } else {
         return false;
     }
 
-    $mime = mime_content_type("uploads/$stamp_name");
+    $mime = mime_content_type("uploads/$id/$stamp_name");
 
     if ($mime === 'image/png') {
         $stamp = imagecreatefrompng(
-            "uploads/$stamp_name"
+            "uploads/$id/$stamp_name"
         );
     } elseif ($mime === 'image/jpeg') {
         $stamp = imagecreatefromjpeg(
-            "uploads/$stamp_name"
+            "uploads/$id/$stamp_name"
         );
     } else {
         echo "$filename - Bad file format";
@@ -91,12 +91,12 @@ function addWatermarkToImage($filename, $stamp_name): bool
     if ($mime === 'image/png') {
         imagepng(
             $im,
-            "result/$filename"
+            "result/$id/$filename"
         );
     } elseif ($mime === 'image/jpeg') {
         imagejpeg(
             $im,
-            "result/$filename"
+            "result/$id/$filename"
         );
     }
 
@@ -105,10 +105,10 @@ function addWatermarkToImage($filename, $stamp_name): bool
     return true;
 }
 
-function uploadVideos(): array
+function uploadVideos($id): array
 {
     $files = [];
-    $uploads_dir = 'uploads';
+    $uploads_dir = "uploads/$id";
 
     if (!file_exists($uploads_dir)) {
         mkdir($uploads_dir);
@@ -129,26 +129,26 @@ function uploadVideos(): array
     return $files;
 }
 
-function addWatermarkToVideo($filename, $stamp_name)
+function addWatermarkToVideo($id, $filename, $stamp_name)
 {
 
-    $destination = "result";
+    $destination = "result/$id";
     if (!file_exists($destination)) {
         mkdir($destination);
     }
 
     $ffmpeg = FFMpeg\FFMpeg::create();
 
-    $video = $ffmpeg->open("uploads/$filename");
+    $video = $ffmpeg->open("uploads/$id/$filename");
 
     $video->filters()
-        ->watermark("uploads/$stamp_name", array(
+        ->watermark("uploads/$id/$stamp_name", array(
             'position' => 'relative',
             'bottom' => 10,
             'left' => 10,
         ));
 
-    $video->save(new FFMpeg\Format\Video\X264(), "$destination/$filename");
+    $video->save(new FFMpeg\Format\Video\X264(), "$destination/$id/$filename");
 }
 
 function zipDirectory($directory, $destination)
@@ -177,35 +177,38 @@ function zipDirectory($directory, $destination)
     $zip->close();
 }
 
-function rrmdir($dir) {
+function recursive_rmdir($dir)
+{
     if (is_dir($dir)) {
         $objects = scandir($dir);
         foreach ($objects as $object) {
             if ($object != "." && $object != "..") {
-                if (is_dir($dir. DIRECTORY_SEPARATOR .$object) && !is_link($dir."/".$object))
-                    rrmdir($dir. DIRECTORY_SEPARATOR .$object);
+                if (is_dir($dir . DIRECTORY_SEPARATOR . $object) && !is_link($dir . "/" . $object))
+                    recursive_rmdir($dir . DIRECTORY_SEPARATOR . $object);
                 else
-                    unlink($dir. DIRECTORY_SEPARATOR .$object);
+                    unlink($dir . DIRECTORY_SEPARATOR . $object);
             }
         }
         rmdir($dir);
     }
 }
 
-function removeDirectories(){
-    rrmdir("result");
-    rrmdir("uploads");
+function removeDirectories($id)
+{
+    recursive_rmdir("result/$id");
+    recursive_rmdir("uploads/$id");
 }
 
+$id = uniqid();
 
 if (isset($_FILES['images'])) {
     try {
 
-        $files = uploadImages();
-        $watermark = uploadStamp();
+        $files = uploadImages($id);
+        $watermark = uploadStamp($id);
 
         foreach ($files as $file) {
-            addWatermarkToImage($file, $watermark);
+            addWatermarkToImage($id, $file, $watermark);
         }
 
 
@@ -217,8 +220,8 @@ if (isset($_FILES['images'])) {
 if (isset($_FILES['videos'])) {
     try {
 
-        $files = uploadVideos();
-        $watermark = uploadStamp();
+        $files = uploadVideos($id);
+        $watermark = uploadStamp($id);
 
         foreach ($files as $file) {
             addWatermarkToVideo($file, $watermark);
@@ -236,9 +239,9 @@ if (isset($_FILES['images']) || isset($_FILES['video'])) {
     }
     try {
 
-        zipDirectory("result", "$destination/result.zip");
+        zipDirectory("result/$id", "$destination/$id/result.zip");
 
-        removeDirectories();
+        removeDirectories($id);
 
     } catch (Throwable $throwable) {
         echo $throwable->getMessage();
@@ -268,7 +271,7 @@ if (isset($_FILES['images']) || isset($_FILES['video'])) {
     <div class="card-body">
 
         <div class="d-grid d-block">
-            <a href="archives/result.zip"
+            <a href="archives/<?= $id ?>/result.zip"
                type="submit"
                value="Відправити"
                class="btn d-block btn-success"
