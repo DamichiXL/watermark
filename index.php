@@ -1,7 +1,31 @@
 <?php
+
+function recursive_rmdir($dir)
+{
+    if (is_dir($dir)) {
+        $objects = scandir($dir);
+        foreach ($objects as $object) {
+            if ($object != "." && $object != "..") {
+                if (is_dir($dir . DIRECTORY_SEPARATOR . $object) && !is_link($dir . "/" . $object))
+                    recursive_rmdir($dir . DIRECTORY_SEPARATOR . $object);
+                else
+                    unlink($dir . DIRECTORY_SEPARATOR . $object);
+            }
+        }
+        rmdir($dir);
+    }
+}
+
 $watermarks = [
     "Watermark #1" => "assets/watermarks/watermark_1.png"
 ];
+
+if (isset($_POST['id'])){
+    $dir = "archives/".$_POST['id'];
+    if (file_exists($dir)) {
+        recursive_rmdir($dir);
+    }
+}
 
 ?>
 

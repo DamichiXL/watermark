@@ -341,13 +341,26 @@ if (isset($_FILES['images']) || isset($_FILES['video'])) {
 
         <div class="d-grid d-block">
             <a href="archives/<?= $id ?>/result.zip"
-               type="submit"
                class="btn d-block btn-success"
             >
                 Завантажити результат
             </a>
         </div>
 
+    </div>
+    <div class="card-footer">
+        <form action="index.php"
+              method="post"
+        >
+            <input type="hidden" name="id" value="<?= $id ?>">
+            <div class="d-grid d-block">
+                <input
+                   type="submit"
+                   class="btn d-block btn-secondary"
+                   value="&lAarr; Повернутись"
+                />
+            </div>
+        </form>
     </div>
 </div>
 </body>
