@@ -82,7 +82,7 @@ function addWatermarkToImage($id, $filename, $stamp_name): bool
     $stamp_w = imagesx($im) * 0.35;
     $stamp_h = $stamp_w / $sx * $sy;
 
-    imagecopyresized(
+    imagecopyresampled(
         $im,
         $stamp,
         imagesx($im) - $stamp_w - $margin_right,
@@ -144,28 +144,53 @@ function addWatermarkToVideo($id, $filename, $stamp_name)
         mkdir($destination, 0777, true);
     }
 
-    $ffprobe = FFMpeg\FFProbe::create();
+    $ffprobe = FFMpeg\FFProbe::create([
+        'ffmpeg.binaries' => '/usr/bin/ffmpeg',
+        'ffprobe.binaries' => '/usr/bin/ffprobe'
+    ]);
 
-    $width = $ffprobe->streams("uploads/$id/$filename")
+    $stream = $ffprobe->streams("uploads/$id/$filename")
         ->videos()
-        ->first()->get("width");
+        ->first();
+    $width = $stream->get("width");
+    $height = $stream->get("height");
 
     $temp_name = "$destination/" . uniqid() . ".png";
 
-    $size = getimagesize($stamp_name);
+    $mime = mime_content_type("$stamp_name");
+
+    if ($mime === 'image/png') {
+        $stamp = imagecreatefrompng(
+            $stamp_name
+        );
+    } elseif ($mime === 'image/jpeg') {
+        $stamp = imagecreatefromjpeg(
+            $stamp_name
+        );
+    } else {
+        echo "$filename - Bad file format";
+        return false;
+    }
+
+    $sx = imagesx($stamp);
+    $sy = imagesy($stamp);
+
+    $stamp_w = $width * 0.35;
+    $stamp_h = ($stamp_w / $sx) * $sy;
 
     resize_watermark(
         $stamp_name,
         $temp_name,
-        $width * 0.35,
-        $width * 0.35 / $size[0] * $size[1]
+        $stamp_w,
+        $stamp_h
     );
 
-    $ffmpeg = FFMpeg\FFMpeg::create();
+    $ffmpeg = FFMpeg\FFMpeg::create([
+        'ffmpeg.binaries' => '/usr/bin/ffmpeg',
+        'ffprobe.binaries' => '/usr/bin/ffprobe'
+    ]);
 
     $video = $ffmpeg->open("uploads/$id/$filename");
-
-
 
     $video->filters()
         ->watermark($temp_name, array(

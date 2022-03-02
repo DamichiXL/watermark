@@ -10,7 +10,7 @@
   ],
   "require": {
     "php": "^7.4",
-    "php-ffmpeg/php-ffmpeg": "^1.0",
+    "php-ffmpeg/php-ffmpeg": "0.*",
     "ext-zip": "*",
     "ext-gd": "*",
     "ext-fileinfo": "*"
