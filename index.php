@@ -1,3 +1,10 @@
+<?php
+$watermarks = [
+    "Watermark #1" => "assets/watermarks/watermark_1.png"
+];
+
+?>
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -5,7 +12,7 @@
     <meta name="viewport"
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+    <link href="assets/bootstrap/bootstrap.min.css"
           rel="stylesheet"
           integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3"
           crossorigin="anonymous"
@@ -49,18 +56,52 @@
                    class="form-control"
             >
 
-            <label for="watermark"
-                   class="form-label"
-            >
+            <label class="form-label">
                 Watermark
             </label>
+
+            <?php foreach ($watermarks as $name => $path): $id = preg_replace('/\s+/', "", strtolower($name));?>
+
+                <div class="form-check">
+                    <input class="form-check-input"
+                           type="radio"
+                           name="watermark"
+                           id="<?= $id ?>"
+                           value="<?= $path ?>"
+                           required
+                    >
+                    <label class="form-check-label"
+                           for="<?= $id ?>"
+                    >
+                        <?= $name ?>
+                    </label>
+                </div>
+
+            <?php endforeach;?>
+
+            <div class="form-check">
+                <input class="form-check-input"
+                       type="radio"
+                       name="watermark"
+                       id="other"
+                       value="other"
+                       required
+                       checked
+                >
+                <label class="form-check-label"
+                       for="other"
+                >
+                    Other
+                </label>
+            </div>
+
             <input type="file"
-                   name="watermark"
+                   name="watermark_file"
                    id="watermark"
                    accept="image/*"
-                   required
                    class="form-control"
             >
+
             <div class="d-grid d-block">
                 <input type="submit"
                        value="Відправити"

@@ -10,7 +10,7 @@ function uploadImages($id): array
     $uploads_dir = "uploads/$id";
 
     if (!file_exists($uploads_dir)) {
-        mkdir($uploads_dir);
+        mkdir($uploads_dir, 0777, true);
     }
 
     foreach ($_FILES["images"]["error"] as $key => $error) {
@@ -32,16 +32,17 @@ function uploadStamp($id): string
 {
     $folder = "uploads/$id";
 
-    move_uploaded_file($_FILES['watermark']["tmp_name"], "$folder/" . $_FILES['watermark']["name"]);
+    move_uploaded_file($_FILES['watermark_file']["tmp_name"], "$folder/" . $_FILES['watermark_file']["name"]);
 
-    return $_FILES['watermark']["name"];
+    return $folder . "/" . $_FILES['watermark_file']["name"];
 }
 
 function addWatermarkToImage($id, $filename, $stamp_name): bool
 {
     $destination = "result/$id";
+
     if (!file_exists($destination)) {
-        mkdir($destination);
+        mkdir($destination, 0777, true);
     }
 
     $mime = mime_content_type("uploads/$id/$filename");
@@ -58,45 +59,51 @@ function addWatermarkToImage($id, $filename, $stamp_name): bool
         return false;
     }
 
-    $mime = mime_content_type("uploads/$id/$stamp_name");
+    $mime = mime_content_type("$stamp_name");
 
     if ($mime === 'image/png') {
         $stamp = imagecreatefrompng(
-            "uploads/$id/$stamp_name"
+            $stamp_name
         );
     } elseif ($mime === 'image/jpeg') {
         $stamp = imagecreatefromjpeg(
-            "uploads/$id/$stamp_name"
+            $stamp_name
         );
     } else {
         echo "$filename - Bad file format";
         return false;
     }
 
-    $margin_left = 10;
+    $margin_right = 10;
     $margin_bottom = 10;
+    $sx = imagesx($stamp);
     $sy = imagesy($stamp);
 
-    imagecopy(
+    $stamp_w = imagesx($im) * 0.35;
+    $stamp_h = $stamp_w / $sx * $sy;
+
+    imagecopyresized(
         $im,
         $stamp,
-        $margin_left,
-        imagesy($im) - $sy - $margin_bottom,
+        imagesx($im) - $stamp_w - $margin_right,
+        imagesy($im) - $stamp_h - $margin_bottom,
         0,
         0,
-        imagesx($stamp),
-        imagesy($stamp)
+        $stamp_w,
+        $stamp_h,
+        $sx,
+        $sy
     );
 
     if ($mime === 'image/png') {
         imagepng(
             $im,
-            "result/$id/$filename"
+            "$destination/$filename"
         );
     } elseif ($mime === 'image/jpeg') {
         imagejpeg(
             $im,
-            "result/$id/$filename"
+            "$destination/$filename"
         );
     }
 
@@ -111,7 +118,7 @@ function uploadVideos($id): array
     $uploads_dir = "uploads/$id";
 
     if (!file_exists($uploads_dir)) {
-        mkdir($uploads_dir);
+        mkdir($uploads_dir, 0777, true);
     }
 
     foreach ($_FILES["videos"]["error"] as $key => $error) {
@@ -131,24 +138,45 @@ function uploadVideos($id): array
 
 function addWatermarkToVideo($id, $filename, $stamp_name)
 {
-
     $destination = "result/$id";
+
     if (!file_exists($destination)) {
-        mkdir($destination);
+        mkdir($destination, 0777, true);
     }
+
+    $ffprobe = FFMpeg\FFProbe::create();
+
+    $width = $ffprobe->streams("uploads/$id/$filename")
+        ->videos()
+        ->first()->get("width");
+
+    $temp_name = "$destination/" . uniqid() . ".png";
+
+    $size = getimagesize($stamp_name);
+
+    resize_watermark(
+        $stamp_name,
+        $temp_name,
+        $width * 0.35,
+        $width * 0.35 / $size[0] * $size[1]
+    );
 
     $ffmpeg = FFMpeg\FFMpeg::create();
 
     $video = $ffmpeg->open("uploads/$id/$filename");
 
+
+
     $video->filters()
-        ->watermark("uploads/$id/$stamp_name", array(
+        ->watermark($temp_name, array(
             'position' => 'relative',
             'bottom' => 10,
-            'left' => 10,
+            'right' => 10
         ));
 
-    $video->save(new FFMpeg\Format\Video\X264(), "$destination/$id/$filename");
+    $video->save(new FFMpeg\Format\Video\X264(), "$destination/$filename");
+
+    unlink($temp_name);
 }
 
 function zipDirectory($directory, $destination)
@@ -199,18 +227,51 @@ function removeDirectories($id)
     recursive_rmdir("uploads/$id");
 }
 
+function resize_watermark($watermark, $destination, $width, $height): bool
+{
+    $mime = mime_content_type($watermark);
+
+    if ($mime === 'image/png') {
+        $im = imagecreatefrompng(
+            $watermark
+        );
+    } elseif ($mime === 'image/jpeg') {
+        $im = imagecreatefromjpeg(
+            $watermark
+        );
+    } else {
+        return false;
+    }
+
+    $size = getimagesize($watermark);
+
+    $dst = imagecreatetruecolor($width, $height);
+    imagealphablending($dst, false);
+    imagesavealpha($dst, true);
+    $transparent = imagecolorallocatealpha($dst, 255, 255, 255, 127);
+    imagefilledrectangle($dst, 0, 0, $width, $height, $transparent);
+    imagecopyresampled($dst, $im, 0, 0, 0, 0, $width, $height, $size[0], $size[1]);
+    imagedestroy($im);
+    imagepng($dst, $destination); // adjust format as needed
+    imagedestroy($dst);
+    return true;
+}
+
 $id = uniqid();
 
 if (isset($_FILES['images'])) {
     try {
-
         $files = uploadImages($id);
-        $watermark = uploadStamp($id);
+
+        if ($_POST['watermark'] === "other") {
+            $watermark = uploadStamp($id);
+        } else {
+            $watermark = $_POST['watermark'];
+        }
 
         foreach ($files as $file) {
             addWatermarkToImage($id, $file, $watermark);
         }
-
 
     } catch (Throwable $throwable) {
         echo $throwable->getMessage();
@@ -221,32 +282,40 @@ if (isset($_FILES['videos'])) {
     try {
 
         $files = uploadVideos($id);
-        $watermark = uploadStamp($id);
+
+        if ($_POST['watermark'] === "other") {
+            $watermark = uploadStamp($id);
+        } else {
+            $watermark = $_POST['watermark'];
+        }
 
         foreach ($files as $file) {
-            addWatermarkToVideo($file, $watermark);
+            addWatermarkToVideo($id, $file, $watermark);
         }
 
     } catch (Throwable $throwable) {
         echo $throwable->getMessage();
+        echo "<pre>";
+        echo $throwable->getTraceAsString();
+        echo "</pre>";
+
     }
 }
 
 if (isset($_FILES['images']) || isset($_FILES['video'])) {
-    $destination = "archives";
+    $destination = "archives/$id";
     if (!file_exists($destination)) {
-        mkdir($destination);
+        mkdir($destination, 0777, true);
     }
     try {
 
-        zipDirectory("result/$id", "$destination/$id/result.zip");
+        zipDirectory("result/$id", "$destination/result.zip");
 
         removeDirectories($id);
 
     } catch (Throwable $throwable) {
         echo $throwable->getMessage();
     }
-
 
 }
 ?>
@@ -259,7 +328,7 @@ if (isset($_FILES['images']) || isset($_FILES['video'])) {
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Result</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+    <link href="assets/bootstrap/bootstrap.min.css"
           rel="stylesheet"
           integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3"
           crossorigin="anonymous"
@@ -273,7 +342,6 @@ if (isset($_FILES['images']) || isset($_FILES['video'])) {
         <div class="d-grid d-block">
             <a href="archives/<?= $id ?>/result.zip"
                type="submit"
-               value="Відправити"
                class="btn d-block btn-success"
             >
                 Завантажити результат
